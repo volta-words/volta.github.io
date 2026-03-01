@@ -119,6 +119,7 @@ header { width:100%; max-width:480px; display:flex; justify-content:space-betwee
   align-items: center;
   padding: 16px 20px 8px;
   min-height: 0;
+  background: var(--bg);
 }
 #keyboard-wrap {
   flex-shrink: 0;
@@ -128,13 +129,69 @@ header { width:100%; max-width:480px; display:flex; justify-content:space-betwee
   padding: 8px 20px 20px;
   background: var(--bg);
 }
+
+/* ===== KT MODE ===== */
+body.kt {
+  --bg: #fff8f0;
+  --surface: #ffffff;
+  --border: #f0d0e0;
+  --text: #3a2a3a;
+  --muted: #b090a0;
+  --up: #e8404a;
+  --down: #4a90d9;
+  --exact: #42b883;
+  --accent: #e060a0;
+}
+body.kt::before {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255,150,200,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(255,200,100,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 30%, rgba(150,200,255,0.10) 0%, transparent 40%);
+}
+body.kt .logo {
+  background: linear-gradient(135deg, #e060a0, #ff9040);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+body.kt .help-btn { border-color: #f0d0e0; color: #c080a0; }
+body.kt .help-btn:hover { border-color: var(--accent); color: var(--accent); }
+body.kt .cell { background: #fff; }
+body.kt .input-cell { background: #fff; }
+body.kt .key { background: #fff5f8; border-color: #f0d0e0; color: var(--text); }
+body.kt .key:hover { border-color: var(--accent); }
+body.kt .key.used { background: #e8e0ec; border-color: #d0b8d8; color: #a080a8; }
+body.kt .end-panel { background: rgba(255,248,240,0.85); }
+body.kt .end-card { background: #fff; border-color: #f0d0e0; }
+body.kt .modal { background: #fff; border-color: #f0d0e0; }
+body.kt #keyboard-wrap { background: #fff8f0; }
+body.kt #scroll-area { background: #fff8f0; }
+body.kt .share-btn { background: var(--accent); }
+
+/* Floating flowers decoration */
+body.kt .flower {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  font-size: 24px;
+  opacity: 0.35;
+  animation: floatFlower linear infinite;
+  user-select: none;
+}
+@keyframes floatFlower {
+  0%   { transform: translateY(0px) rotate(0deg); opacity: 0.25; }
+  50%  { transform: translateY(-18px) rotate(20deg); opacity: 0.45; }
+  100% { transform: translateY(0px) rotate(0deg); opacity: 0.25; }
+}
+
+
 </style>
 </head>
 <body>
 
 <div id="scroll-area">
   <header>
-    <div class="logo">VOLTA</div>
+    <div class="logo" id="logo" onclick="toggleKT()" style="cursor:pointer">VOLTA</div>
     <button class="help-btn" onclick="showModal()">HOW TO PLAY</button>
   </header>
 
@@ -370,19 +427,46 @@ function endGame(won) {
 function shareResult() {
   var won = resultGrid.length && resultGrid[resultGrid.length-1].every(function(t){return t==='exact';});
   var score = won ? guesses.length : 'X';
-  var up = String.fromCodePoint(0x1F7E2);
-  var down = String.fromCodePoint(0x1F534);
-  var exact = String.fromCodePoint(0x1F7E1);
+  var up = String.fromCodePoint(0x1F534);
+  var down = String.fromCodePoint(0x1F535);
+  var exact = String.fromCodePoint(0x1F7E2);
   var text = 'VOLTA ' + score + '/6\n\n';
   text += resultGrid.map(function(row){
     return row.map(function(t){ return t==='up'?up:t==='down'?down:exact; }).join('');
   }).join('\n');
-  navigator.clipboard.writeText(text).then(function() {
+
+  function showToast(msg) {
     var t = document.getElementById('toast');
-    t.textContent = 'COPIED!';
+    t.textContent = msg;
     t.classList.add('show');
     setTimeout(function(){ t.classList.remove('show'); }, 2000);
-  });
+  }
+
+  if (navigator.share) {
+    navigator.share({
+      title: 'VOLTA',
+      text: text
+    }).catch(function(){
+      // User cancelled or error - do nothing
+    });
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('COPIED!');
+    }).catch(function() {
+      showToast('COPY FAILED');
+    });
+  } else {
+    // Last resort fallback
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('COPIED!');
+  }
 }
 
 function showModal() { document.getElementById('modal').classList.add('show'); }
@@ -400,6 +484,53 @@ document.addEventListener('keydown', function(e) {
 
 initGame();
 
+</script>
+
+<script>
+var FLOWERS = ['🌸','🌼','🌺','🌻','💐','🌷','🌹','🏵️'];
+var ktFlowers = [];
+
+function spawnFlowers() {
+  FLOWERS.forEach(function(f, i) {
+    var el = document.createElement('div');
+    el.className = 'flower';
+    el.textContent = f;
+    el.style.left = (8 + i * 12) + '%';
+    el.style.top = (10 + Math.random() * 80) + '%';
+    el.style.fontSize = (18 + Math.random() * 16) + 'px';
+    el.style.animationDuration = (4 + Math.random() * 4) + 's';
+    el.style.animationDelay = (-Math.random() * 4) + 's';
+    document.body.appendChild(el);
+    ktFlowers.push(el);
+  });
+}
+
+function removeFlowers() {
+  ktFlowers.forEach(function(el) { el.remove(); });
+  ktFlowers = [];
+}
+
+function toggleKT() {
+  var body = document.body;
+  if (body.classList.contains('kt')) {
+    body.classList.remove('kt');
+    removeFlowers();
+    localStorage.removeItem('ktmode');
+    document.getElementById('logo').textContent = 'VOLTA';
+  } else {
+    body.classList.add('kt');
+    spawnFlowers();
+    localStorage.setItem('ktmode', '1');
+    document.getElementById('logo').textContent = 'KT MODE';
+  }
+}
+
+// Restore on load
+if (localStorage.getItem('ktmode') === '1') {
+  document.body.classList.add('kt');
+  spawnFlowers();
+  document.getElementById('logo').textContent = 'KT MODE';
+}
 </script>
 </body>
 </html>
