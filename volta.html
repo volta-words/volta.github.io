@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VOLTA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SKEWRD</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -18,7 +18,9 @@ body {
   height: 100dvh; max-height: 100dvh;
   display: flex; flex-direction: column;
   align-items: center; overflow: hidden;
+  touch-action: manipulation;
 }
+button { touch-action: manipulation; }
 body::before {
   content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
   background: radial-gradient(ellipse at 30% 20%, rgba(123,111,255,0.06) 0%, transparent 50%),
@@ -91,6 +93,7 @@ header { width:100%; max-width:480px; display:flex; justify-content:space-betwee
 .end-title.lose { color:var(--down);  }
 .end-word { color:var(--muted); font-size:12px; letter-spacing:3px; }
 .end-def { font-size:12px; color:var(--text); opacity:0.65; max-width:260px; margin:10px auto 0; line-height:1.6; font-style:italic; min-height:18px; }
+.end-name { font-size:11px; letter-spacing:2px; opacity:0.45; margin:18px auto 6px; text-transform:uppercase; }
 .share-btn,.play-again-btn { font-family:'Space Mono',monospace; font-size:12px; font-weight:700; letter-spacing:2px; padding:12px 24px; border-radius:4px; cursor:pointer; border:none; transition:all 0.2s; }
 .share-btn { background:var(--exact); color:var(--bg); }
 .share-btn:hover { opacity:0.85; transform:translateY(-1px); }
@@ -170,6 +173,7 @@ body.kt .modal { background: #fff; border-color: #f0d0e0; }
 body.kt #keyboard-wrap { background: #fff8f0; }
 body.kt #scroll-area { background: #fff8f0; }
 body.kt .share-btn { background: var(--accent); }
+body.kt .end-name { color: #a04080; opacity:0.6; }
 
 /* Floating flowers decoration */
 body.kt .flower {
@@ -194,7 +198,7 @@ body.kt .flower {
 
 <div id="scroll-area">
   <header>
-    <div class="logo" id="logo" onclick="toggleKT()" style="cursor:pointer">VOLTA</div>
+    <div class="logo" id="logo" onclick="toggleKT()" style="cursor:pointer">SKEWRD</div>
     <button class="help-btn" onclick="showModal()">HOW TO PLAY</button>
   </header>
 
@@ -251,7 +255,7 @@ body.kt .flower {
       <div class="end-title" id="end-title"></div>
       <div class="end-word" id="end-word"></div>
       <div class="end-def" id="end-def"></div>
-      <button class="share-btn" onclick="shareResult()">SHARE RESULT</button>
+      <div class="end-name" id="end-name"></div><button class="share-btn" onclick="shareResult()">SHARE RESULT</button>
       <button class="play-again-btn" onclick="initGame()">PLAY AGAIN</button>
     </div>
   </div>
@@ -313,7 +317,7 @@ function initGame() {
     c.className = 'input-cell' + (i === 0 ? ' active' : '');
   }
   buildKeyboard();
-  if (!localStorage.getItem('voltaPlayed')) {
+  if (!localStorage.getItem('skewrdPlayed')) {
     setTimeout(showModal, 400);
   }
   // Find today's word - skip any that have no dictionary definition
@@ -505,6 +509,8 @@ function endGame(won) {
   var title = document.getElementById("end-title");
   var wordEl = document.getElementById("end-word");
   var defEl = document.getElementById("end-def");
+  var nameEl = document.getElementById("end-name");
+  if (nameEl) nameEl.textContent = getDailyName();
   title.textContent = won ? "SOLVED!" : "GAME OVER";
   title.className = "end-title " + (won ? "win" : "lose");
   wordEl.textContent = won
@@ -525,13 +531,26 @@ function endGame(won) {
     .catch(function() {});
 }
 
+var SKEWRD_ADJ = ['Velvet','Cobalt','Gilded','Crimson','Sullen','Amber','Hollow','Frosted','Brazen','Spectral','Murky','Verdant','Ashen','Bronzed','Nimble','Stormy','Wistful','Pallid','Gilded','Onyx','Russet','Solemn','Twilight','Brindled','Pewter'];
+var SKEWRD_ANI = ['Penguin','Mongoose','Macaw','Viper','Wombat','Salamander','Lynx','Narwhal','Capybara','Marmot','Pelican','Jackal','Okapi','Puffin','Tapir','Caracal','Numbat','Quetzal','Axolotl','Pangolin','Ibis','Mandrill','Vole','Ocelot','Raven'];
+
+function getDailyName() {
+  var day = Math.floor(Date.now() / 86400000);
+  var rand1 = seededRand(day * 1234567891);
+  var rand2 = seededRand(day * 9876543211);
+  var adj = SKEWRD_ADJ[Math.floor(rand1() * SKEWRD_ADJ.length)];
+  var ani = SKEWRD_ANI[Math.floor(rand2() * SKEWRD_ANI.length)];
+  return 'The ' + adj + ' ' + ani;
+}
+
 function shareResult() {
   var won = resultGrid.length && resultGrid[resultGrid.length-1].every(function(t){return t==='exact';});
   var score = won ? guesses.length : 'X';
   var up = String.fromCodePoint(0x1F534);
   var down = String.fromCodePoint(0x1F535);
   var exact = String.fromCodePoint(0x1F7E2);
-  var text = 'VOLTA ' + score + '/6\n\n';
+  var name = getDailyName();
+  var text = 'SKEWRD ' + score + '/6 — ' + name + '\n\n';
   text += resultGrid.map(function(row){
     return row.map(function(t){ return t==='up'?up:t==='down'?down:exact; }).join('');
   }).join('\n');
@@ -545,7 +564,7 @@ function shareResult() {
 
   if (navigator.share) {
     navigator.share({
-      title: 'VOLTA',
+      title: 'SKEWRD',
       text: text
     }).catch(function(){
       // User cancelled or error - do nothing
@@ -574,7 +593,7 @@ function showModal() { document.getElementById('modal').classList.add('show'); }
 function hideModal(e) {
   if (!e || e.target === document.getElementById('modal')) {
     document.getElementById('modal').classList.remove('show');
-    localStorage.setItem('voltaPlayed', '1');
+    localStorage.setItem('skewrdPlayed', '1');
   }
 }
 
@@ -618,7 +637,7 @@ function toggleKT() {
     body.classList.remove('kt');
     removeFlowers();
     localStorage.removeItem('ktmode');
-    document.getElementById('logo').textContent = 'VOLTA';
+    document.getElementById('logo').textContent = 'SKEWRD';
   } else {
     body.classList.add('kt');
     spawnFlowers();
