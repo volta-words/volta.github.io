@@ -39,7 +39,9 @@ export async function shareResult(resultGrid, guessCount) {
 
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'SKEWRD', text, url: GAME_SITE_URL });
+      // URL is already at the end of `text`. Passing `url` duplicates it in
+      // WhatsApp, Mail, and other targets that append both fields.
+      await navigator.share({ title: 'SKEWRD', text });
     } catch {
       /* cancelled */
     }
