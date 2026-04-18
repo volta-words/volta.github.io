@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SKEWRD</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/kt.css">
+</head>
+<body>
+
+<div id="scroll-area">
+  <header>
+    <div class="logo" id="logo">SKEWRD</div>
+    <div class="header-actions">
+      <button type="button" id="kt-toggle" class="kt-toggle" aria-label="Toggle KT mode" aria-pressed="false" title="Default theme">&#9789;</button>
+      <button type="button" class="help-btn">HOW TO PLAY</button>
+    </div>
+  </header>
+
+  <div class="subtitle">higher &middot; lower &middot; exact</div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-arrow" style="color:var(--up)">&#8593;</span><span>letter is higher</span></div>
+    <div class="legend-item"><span class="legend-arrow" style="color:var(--down)">&#8595;</span><span>letter is lower</span></div>
+    <div class="legend-item"><span class="legend-arrow" style="color:var(--exact)">&#10003;</span><span>exact</span></div>
+  </div>
+
+  <div id="message"></div>
+  <div id="game-board"></div>
+
+  <div class="input-row" id="input-row">
+    <div class="input-cell active" id="ic0"></div>
+    <div class="input-cell" id="ic1"></div>
+    <div class="input-cell" id="ic2"></div>
+    <div class="input-cell" id="ic3"></div>
+    <div class="input-cell" id="ic4"></div>
+  </div>
+
+</div>
+
+<div id="keyboard-wrap">
+  <div class="keyboard" id="keyboard">
+    <div class="kb-row" id="kb-row-0"></div>
+    <div class="kb-row" id="kb-row-1"></div>
+    <div class="kb-row" id="kb-row-2"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>HOW TO PLAY</h2>
+    <p>Guess the secret 5-letter word in 6 tries. After each guess, each letter shows whether the answer letter is <strong style="color:var(--up)">higher &#8593;</strong>, <strong style="color:var(--down)">lower &#8595;</strong>, or <strong style="color:var(--exact)">exact &#10003;</strong> in the alphabet.</p>
+    <p>Example: guessing BLAND when the answer is CROWN:</p>
+    <div class="modal-example">
+      <div class="ex-cell up"><span class="ex-arrow">&#8593;</span>B</div>
+      <div class="ex-cell up"><span class="ex-arrow">&#8593;</span>L</div>
+      <div class="ex-cell up"><span class="ex-arrow">&#8593;</span>A</div>
+      <div class="ex-cell up"><span class="ex-arrow">&#8593;</span>N</div>
+      <div class="ex-cell up"><span class="ex-arrow">&#8593;</span>D</div>
+    </div>
+    <p>Every letter in CROWN comes after the corresponding letter in BLAND &#8212; go higher on all five!</p>
+    <button type="button" class="close-modal">LET&#39;S PLAY</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div class="end-panel" id="end-panel">
+  <div class="end-card">
+    <div class="end-title" id="end-title"></div>
+    <div class="end-word" id="end-word"></div>
+    <div class="end-def" id="end-def"></div>
+    <div class="end-name" id="end-name"></div>
+    <button type="button" class="share-btn">SHARE RESULT</button>
+    <button type="button" class="play-again-btn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
