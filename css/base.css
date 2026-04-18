@@ -20,7 +20,16 @@ body::before {
   pointer-events: none; z-index: 0;
 }
 header { width:100%; max-width:480px; display:flex; justify-content:space-between; align-items:center; padding:8px 0 16px; position:relative; z-index:1; }
-.logo { font-family:'Bebas Neue',sans-serif; font-size:42px; letter-spacing:6px; background:linear-gradient(135deg,var(--accent),var(--up)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; cursor:pointer; }
+.header-actions { display:flex; align-items:center; gap:8px; }
+.logo { font-family:'Bebas Neue',sans-serif; font-size:42px; letter-spacing:6px; background:linear-gradient(135deg,var(--accent),var(--up)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; cursor:default; user-select:none; }
+.kt-toggle {
+  background:none; border:1px solid var(--border); color:var(--muted);
+  font-family:'Space Mono',monospace; font-size:18px; line-height:1;
+  padding:6px 10px; cursor:pointer; border-radius:4px; transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; min-width:40px;
+}
+.kt-toggle:hover { border-color:var(--accent); color:var(--accent); }
+.kt-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .help-btn { background:none; border:1px solid var(--border); color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; padding:6px 12px; cursor:pointer; border-radius:4px; transition:all 0.2s; letter-spacing:1px; }
 .help-btn:hover { border-color:var(--accent); color:var(--accent); }
 .subtitle { color:var(--muted); font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-bottom:28px; position:relative; z-index:1; text-align:center; }

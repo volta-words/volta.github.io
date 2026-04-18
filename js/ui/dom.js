@@ -146,7 +146,7 @@ export function hideModal(e) {
 }
 
 /**
- * Wire static controls (help, modal, logo, end buttons — callbacks from main)
+ * Wire static controls (help, modal, KT toggle, end buttons — callbacks from main)
  */
 export function bindChrome({
   onToggleKt,
@@ -154,7 +154,8 @@ export function bindChrome({
   onPlayAgain,
   onShare,
 }) {
-  document.getElementById('logo').addEventListener('click', onToggleKt);
+  const ktToggle = document.getElementById('kt-toggle');
+  if (ktToggle) ktToggle.addEventListener('click', onToggleKt);
   document.querySelector('.help-btn').addEventListener('click', onShowHelp);
   document.getElementById('modal').addEventListener('click', (e) => hideModal(e));
   document.querySelector('.close-modal').addEventListener('click', () => hideModal());

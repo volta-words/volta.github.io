@@ -1,6 +1,9 @@
 const FLOWERS = ['🌸', '🌼', '🌺', '🌻', '💐', '🌷', '🌹', '🏵️'];
 const KT_KEY = 'ktmode';
 
+const MOON = '\u263D';
+const SUN = '\u2600';
+
 let ktFlowers = [];
 
 function spawnFlowers() {
@@ -23,9 +26,13 @@ function removeFlowers() {
   ktFlowers = [];
 }
 
-function setLogoLabel(kt) {
-  const logo = document.getElementById('logo');
-  logo.textContent = kt ? 'KT MODE' : 'SKEWRD';
+export function syncKtToggleUi() {
+  const btn = document.getElementById('kt-toggle');
+  if (!btn) return;
+  const kt = document.body.classList.contains('kt');
+  btn.setAttribute('aria-pressed', kt ? 'true' : 'false');
+  btn.textContent = kt ? SUN : MOON;
+  btn.title = kt ? 'KT mode (warm theme)' : 'Default theme';
 }
 
 export function isKtMode() {
@@ -38,19 +45,18 @@ export function toggleKT() {
     body.classList.remove('kt');
     removeFlowers();
     localStorage.removeItem(KT_KEY);
-    setLogoLabel(false);
   } else {
     body.classList.add('kt');
     spawnFlowers();
     localStorage.setItem(KT_KEY, '1');
-    setLogoLabel(true);
   }
+  syncKtToggleUi();
 }
 
 export function restoreKtFromStorage() {
   if (localStorage.getItem(KT_KEY) === '1') {
     document.body.classList.add('kt');
     spawnFlowers();
-    setLogoLabel(true);
   }
+  syncKtToggleUi();
 }

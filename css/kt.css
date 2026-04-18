@@ -21,6 +21,9 @@ body.kt .logo {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+body.kt .kt-toggle { border-color: #f0d0e0; color: #c080a0; }
+body.kt .kt-toggle:hover { border-color: var(--accent); color: var(--accent); }
+body.kt .kt-toggle:focus-visible { outline-color: var(--accent); }
 body.kt .help-btn { border-color: #f0d0e0; color: #c080a0; }
 body.kt .help-btn:hover { border-color: var(--accent); color: var(--accent); }
 body.kt .cell { background: #fff; }
