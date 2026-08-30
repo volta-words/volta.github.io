@@ -1,4 +1,4 @@
-import { seededRand } from '../game/rng.js?v=3';
+import { seededRand } from '../game/rng.js?v=4';
 
 const SKEWRD_ADJ = [
   'Velvet', 'Cobalt', 'Gilded', 'Crimson', 'Sullen', 'Amber', 'Hollow', 'Frosted', 'Brazen', 'Spectral',

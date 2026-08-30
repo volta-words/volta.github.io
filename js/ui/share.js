@@ -1,4 +1,4 @@
-import { getDailyName } from './names.js?v=3';
+import { getDailyName } from './names.js?v=4';
 
 const GAME_SITE_URL = 'https://mindtwistgames.com';
 
