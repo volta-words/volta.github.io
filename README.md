@@ -10,3 +10,13 @@ Volta Word Game (SKEWRD)
 With that setup, the next normal visit loads fresh `index.html`, which points at new versioned JS. Old cached `main.js` / `dictionary.js` URLs are ignored.
 
 Private mode worked because it had no old cache; fixing server HTML caching fixes everyone else without asking users to clear data.
+
+### Fasthosts (Apache `.htaccess`)
+
+From the repo root:
+
+```bash
+bash deploy/create-htaccess.sh
+```
+
+This writes `.htaccess` next to `index.html`. Upload that file to your Fasthosts web root via File Manager or FTP.
