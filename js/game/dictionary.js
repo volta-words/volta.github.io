@@ -1,37 +1,16 @@
 import { getDailyAnswerForDaySlot } from './rng.js';
 
 const DICT_URL = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
-const MAX_SKIP = 30;
 
 /**
- * Picks a secret word: same chain as findValidWord — try dictionary until valid entry.
+ * Picks today's secret word from the local answer list (no network).
  * @param {string[]} answers
- * @param {number} [startOffset]
- * @returns {Promise<string>}
+ * @param {number} [startOffset] day-slot offset (defaults to today)
+ * @returns {string}
  */
-export async function resolveSecretWord(answers, startOffset = 0) {
+export function resolveSecretWord(answers, startOffset = 0) {
   const baseDay = Math.floor(Date.now() / 86400000);
-
-  async function tryOffset(offset) {
-    if (offset > MAX_SKIP) {
-      return getDailyAnswerForDaySlot(answers, baseDay);
-    }
-    const daySlot = baseDay + offset;
-    const candidate = getDailyAnswerForDaySlot(answers, daySlot);
-    try {
-      const r = await fetch(DICT_URL + candidate.toLowerCase());
-      if (!r.ok) return tryOffset(offset + 1);
-      const data = await r.json();
-      if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
-        return candidate;
-      }
-      return tryOffset(offset + 1);
-    } catch {
-      return tryOffset(offset + 1);
-    }
-  }
-
-  return tryOffset(startOffset);
+  return getDailyAnswerForDaySlot(answers, baseDay + startOffset);
 }
 
 /**

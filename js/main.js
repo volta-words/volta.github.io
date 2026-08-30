@@ -15,6 +15,8 @@ import {
   flashInputPop,
   clearGameBoard,
   showMessage,
+  setStatusMessage,
+  setGameInputEnabled,
   hideEndPanel,
   showPlayingChrome,
   showEndPanel,
@@ -40,6 +42,8 @@ let secretWord = '';
 let guesses = [];
 let currentInput = [];
 let gameOver = false;
+let gameReady = false;
+let initGeneration = 0;
 let resultGrid = [];
 let posRanges = initialPosRanges();
 
@@ -48,13 +52,20 @@ async function loadWordData() {
     fetch('data/words.json'),
     fetch('data/answers.json'),
   ]);
+  if (!wRes.ok || !aRes.ok) {
+    throw new Error('word data fetch failed');
+  }
   const words = await wRes.json();
-  answers = await aRes.json();
+  const answerList = await aRes.json();
+  if (!Array.isArray(words) || !Array.isArray(answerList) || answerList.length === 0) {
+    throw new Error('invalid word data');
+  }
+  answers = answerList;
   allValid = new Set(words);
 }
 
 function handleKey(key) {
-  if (gameOver) return;
+  if (gameOver || !gameReady) return;
   if (key === 'DEL' || key === 'BACKSPACE') {
     if (currentInput.length > 0) {
       currentInput.pop();
@@ -76,8 +87,12 @@ function handleKey(key) {
 }
 
 function submitGuess() {
-  if (!secretWord) {
+  if (!gameReady) {
     showMessage('LOADING...');
+    return;
+  }
+  if (!secretWord) {
+    showMessage('CANNOT START GAME');
     return;
   }
   if (currentInput.length < 5) {
@@ -123,6 +138,8 @@ function endGame(won) {
 }
 
 async function initGame() {
+  const gen = ++initGeneration;
+  gameReady = false;
   posRanges = initialPosRanges();
   guesses = [];
   currentInput = [];
@@ -145,6 +162,7 @@ async function initGame() {
     posRanges = initialPosRanges();
     guesses.forEach((g) => updatePosRanges(posRanges, g.result));
     gameOver = true;
+    gameReady = true;
     guesses.forEach((g) => renderGuessRow(g.word, g.result));
     updateInputCells([]);
     document.getElementById('input-row').style.display = 'none';
@@ -158,24 +176,42 @@ async function initGame() {
   }
 
   showPlayingChrome();
+  setGameInputEnabled(false);
+  setStatusMessage('LOADING...');
   refreshKeyboardHighlight(posRanges, 0);
 
   maybeShowFirstVisitModal();
 
-  secretWord = await resolveSecretWord(answers, 0);
+  secretWord = resolveSecretWord(answers, 0);
+  if (gen !== initGeneration) return;
+
+  if (!secretWord) {
+    setStatusMessage('CANNOT START GAME');
+    setGameInputEnabled(false);
+    return;
+  }
+
+  setStatusMessage('');
+  setGameInputEnabled(true);
+  gameReady = true;
   refreshKeyboardHighlight(posRanges, currentInput.length);
 }
 
 async function bootstrap() {
   restoreKtFromStorage();
-  await loadWordData();
+  try {
+    await loadWordData();
+  } catch {
+    showMessage('WORD LIST FAILED TO LOAD');
+    return;
+  }
 
   bindChrome({
     onToggleKt: toggleKT,
     onShowHelp: () => showModal(),
-    onPlayAgain: () => {
+    onPlayAgain: async () => {
       clearTodayWin();
-      initGame();
+      await initGame();
     },
     onShare: () => shareResult(resultGrid, guesses.length),
   });
