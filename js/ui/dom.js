@@ -106,6 +106,22 @@ export function showPlayingChrome() {
   document.getElementById('message').textContent = '';
 }
 
+/** Persistent status line (unlike showMessage, does not auto-clear). */
+export function setStatusMessage(msg) {
+  document.getElementById('message').textContent = msg;
+}
+
+/** @param {boolean} enabled */
+export function setGameInputEnabled(enabled) {
+  const inputRow = document.getElementById('input-row');
+  const keyboard = document.getElementById('keyboard');
+  if (!inputRow || !keyboard) return;
+  inputRow.style.pointerEvents = enabled ? '' : 'none';
+  keyboard.style.pointerEvents = enabled ? '' : 'none';
+  inputRow.style.opacity = enabled ? '' : '0.5';
+  keyboard.style.opacity = enabled ? '' : '0.5';
+}
+
 /**
  * @param {boolean} won
  * @param {string} secretWord
