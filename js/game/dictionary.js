@@ -1,4 +1,4 @@
-import { getDailyAnswerForDaySlot } from './rng.js';
+import { getDailyAnswerForDaySlot } from './rng.js?v=3';
 
 const DICT_URL = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
 const DICT_FETCH_MS = 8000;

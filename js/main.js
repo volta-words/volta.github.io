@@ -5,8 +5,8 @@ import {
   isWin,
   MAX_GUESSES,
   isAllowedGuess,
-} from './game/rules.js';
-import { resolveSecretWord, fetchDefinitionSnippet } from './game/dictionary.js';
+} from './game/rules.js?v=3';
+import { resolveSecretWord, fetchDefinitionSnippet } from './game/dictionary.js?v=3';
 import {
   initKeyboard,
   renderGuessRow,
@@ -23,11 +23,11 @@ import {
   bindChrome,
   maybeShowFirstVisitModal,
   showModal,
-} from './ui/dom.js';
-import { shareResult } from './ui/share.js';
-import { getDailyName } from './ui/names.js';
-import { toggleKT, restoreKtFromStorage } from './ui/kt.js';
-import { loadTodayWin, saveTodayWin, clearTodayWin } from './storage/dailyWin.js';
+} from './ui/dom.js?v=3';
+import { shareResult } from './ui/share.js?v=3';
+import { getDailyName } from './ui/names.js?v=3';
+import { toggleKT, restoreKtFromStorage } from './ui/kt.js?v=3';
+import { loadTodayWin, saveTodayWin, clearTodayWin } from './storage/dailyWin.js?v=3';
 
 const KB_ROWS = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],

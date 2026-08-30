@@ -1,4 +1,4 @@
-import { evaluateGuess, isWin } from '../game/rules.js';
+import { evaluateGuess, isWin } from '../game/rules.js?v=3';
 
 const STORAGE_KEY = 'skewrdDailyWin';
 
