@@ -122,11 +122,22 @@ function submitGuess() {
   }
 }
 
+function loadDefinition(word, defEl) {
+  defEl.textContent = 'Loading definition…';
+  fetchDefinitionSnippet(
+    word,
+    (pos, def) => {
+      defEl.textContent = pos + ': ' + def;
+    },
+    () => {
+      defEl.textContent = 'Definition unavailable.';
+    }
+  );
+}
+
 function endGame(won) {
   showEndPanel(won, secretWord, guesses.length, getDailyName(), (word, defEl) => {
-    fetchDefinitionSnippet(word, (pos, def) => {
-      defEl.textContent = pos + ': ' + def;
-    });
+    loadDefinition(word, defEl);
   });
   if (won) {
     saveTodayWin({
@@ -168,9 +179,7 @@ async function initGame() {
     document.getElementById('input-row').style.display = 'none';
     document.getElementById('keyboard').style.display = 'none';
     showEndPanel(true, secretWord, guesses.length, getDailyName(), (word, defEl) => {
-      fetchDefinitionSnippet(word, (pos, def) => {
-        defEl.textContent = pos + ': ' + def;
-      });
+      loadDefinition(word, defEl);
     });
     return;
   }
