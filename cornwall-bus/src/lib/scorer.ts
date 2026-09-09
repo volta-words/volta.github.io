@@ -111,9 +111,31 @@ export function rankRoutes(
   >[],
   preferences: StopPreference[],
   weights?: WeightPreferences,
+  mode?: "arrive-by" | "depart-after",
 ): ScoredRoute[] {
   const scored = routes.map((r) => scoreRoute(r, preferences, weights));
-  scored.sort((a, b) => a.score - b.score);
+
+  if (mode === "arrive-by") {
+    // Latest valid arrival first — closest to "arrive by" deadline
+    scored.sort((a, b) => {
+      const arrDiff =
+        new Date(b.arrivalTime).getTime() - new Date(a.arrivalTime).getTime();
+      if (arrDiff !== 0) return arrDiff;
+      if (a.numTransfers !== b.numTransfers) return a.numTransfers - b.numTransfers;
+      return a.score - b.score;
+    });
+  } else if (mode === "depart-after") {
+    // Earliest departure first — closest to "leave after" time
+    scored.sort((a, b) => {
+      const depDiff =
+        new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime();
+      if (depDiff !== 0) return depDiff;
+      if (a.numTransfers !== b.numTransfers) return a.numTransfers - b.numTransfers;
+      return a.score - b.score;
+    });
+  } else {
+    scored.sort((a, b) => a.score - b.score);
+  }
 
   // Tag the best in each dimension
   if (scored.length > 0) {
@@ -128,8 +150,13 @@ export function rankRoutes(
     )[0];
 
     for (const route of scored) {
+      if (mode === "arrive-by" && route === scored[0]) {
+        route.tags.unshift("Best time");
+      } else if (mode === "depart-after" && route === scored[0]) {
+        route.tags.unshift("Best time");
+      }
       if (route.id === fastest.id && !route.tags.includes("Fastest"))
-        route.tags.unshift("Fastest");
+        route.tags.push("Fastest");
       if (route.id === fewestChanges.id && route.numTransfers <= 1)
         route.tags.push("Fewest changes");
       if (route.id === bestStops.id) route.tags.push("Best change points");

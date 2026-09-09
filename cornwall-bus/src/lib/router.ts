@@ -90,6 +90,6 @@ export async function planJourney(
     source = "fallback";
   }
 
-  const routes = rankRoutes(rawRoutes, preferences, request.weights);
+  const routes = rankRoutes(rawRoutes, preferences, request.weights, request.mode);
   return { routes, source };
 }

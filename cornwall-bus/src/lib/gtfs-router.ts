@@ -252,14 +252,15 @@ function findPaths(
       false,
       firstLegMaxSec,
     );
-    for (const leg of legs) {
-      if (toIds.has(leg.toId)) addPath([leg]);
-    }
+    const directLegs = legs
+      .filter((l) => toIds.has(l.toId))
+      .sort((a, b) =>
+        mode === "arrive-by" ? b.arriveSec - a.arriveSec : a.departSec - b.departSec,
+      );
+    for (const leg of directLegs) addPath([leg]);
   }
 
-  if (paths.length >= 8) return paths;
-
-  function dfs(path: TimedLeg[], isFirstHop: boolean) {
+  function dfs(path: TimedLeg[]) {
     if (paths.length >= MAX_PATHS) return;
     if (path.length > maxTransfers + 1) return;
 
@@ -284,7 +285,7 @@ function findPaths(
         ? [
             ...targets.sort((a, b) => b.arriveSec - a.arriveSec),
             ...transfers
-              .sort((a, b) => a.departSec - b.departSec)
+              .sort((a, b) => b.departSec - a.departSec)
               .slice(0, 12),
           ]
         : [
@@ -301,7 +302,7 @@ function findPaths(
       if (toIds.has(leg.toId)) {
         addPath(next);
       } else {
-        dfs(next, false);
+        dfs(next);
       }
     }
   }
@@ -323,14 +324,19 @@ function findPaths(
     const targets = firstLegs.filter((l) => toIds.has(l.toId));
     const transfers = firstLegs.filter((l) => !toIds.has(l.toId));
 
-    for (const leg of targets) addPath([leg]);
+    for (const leg of targets.sort((a, b) =>
+      mode === "arrive-by" ? b.arriveSec - a.arriveSec : a.departSec - b.departSec,
+    )) {
+      addPath([leg]);
+    }
 
-    const transferCandidates = transfers
-      .sort((a, b) => a.departSec - b.departSec)
-      .slice(0, firstHopLimit);
+    const transferCandidates =
+      mode === "arrive-by"
+        ? transfers.sort((a, b) => b.departSec - a.departSec).slice(0, firstHopLimit)
+        : transfers.sort((a, b) => a.departSec - b.departSec).slice(0, firstHopLimit);
 
     for (const leg of transferCandidates) {
-      dfs([leg], true);
+      dfs([leg]);
       if (paths.length >= MAX_PATHS) break;
     }
 
@@ -493,6 +499,13 @@ export function planWithGtfs(params: {
   >[] = [];
 
   allPaths.sort((a, b) => {
+    if (mode === "arrive-by") {
+      const arrDiff = b[b.length - 1].arriveSec - a[a.length - 1].arriveSec;
+      if (arrDiff !== 0) return arrDiff;
+    } else {
+      const depDiff = a[0].departSec - b[0].departSec;
+      if (depDiff !== 0) return depDiff;
+    }
     if (a.length !== b.length) return a.length - b.length;
     const aDur = a[a.length - 1].arriveSec - a[0].departSec;
     const bDur = b[b.length - 1].arriveSec - b[0].departSec;
@@ -500,9 +513,7 @@ export function planWithGtfs(params: {
   });
 
   for (let i = 0; i < allPaths.length && routes.length < 8; i++) {
-    const key = allPaths[i]
-      .map((l) => `${l.route}@${l.departSec}->${l.toId}`)
-      .join("|");
+    const key = `${allPaths[i][allPaths[i].length - 1].arriveSec}|${allPaths[i].map((l) => l.route).join("+")}|${allPaths[i].length}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
