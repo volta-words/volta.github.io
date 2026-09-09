@@ -1,5 +1,6 @@
 import { planWithOtp, isOtpAvailable } from "./otp-client";
 import { planWithFallback } from "./fallback-router";
+import { planWithGtfs, isGtfsGraphAvailable } from "./gtfs-router";
 import { rankRoutes } from "./scorer";
 import type { JourneyRequest, ScoredRoute, StopPreference } from "./types";
 import { getStopById } from "./stops";
@@ -12,18 +13,27 @@ function parseTime(timeStr: string, date?: string): Date {
   }
 
   const [hours, minutes] = timeStr.split(":").map(Number);
-  const d = new Date(`${baseDate}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
-  return d;
+  return new Date(
+    `${baseDate}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`,
+  );
+}
+
+function resolveStopIds(primary: string[], fallback?: string): string[] {
+  const ids = primary.length > 0 ? primary : fallback ? [fallback] : [];
+  return [...new Set(ids.filter((id) => getStopById(id)))];
 }
 
 export async function planJourney(
   request: JourneyRequest,
   preferences: StopPreference[] = [],
-): Promise<{ routes: ScoredRoute[]; source: "otp" | "fallback" }> {
-  const from = getStopById(request.fromStopId);
-  const to = getStopById(request.toStopId);
+): Promise<{ routes: ScoredRoute[]; source: "otp" | "gtfs" | "fallback" }> {
+  const fromStopIds = resolveStopIds(
+    request.fromStopIds ?? [],
+    request.fromStopId,
+  );
+  const toStopIds = resolveStopIds(request.toStopIds ?? [], request.toStopId);
 
-  if (!from || !to) {
+  if (fromStopIds.length === 0 || toStopIds.length === 0) {
     return { routes: [], source: "fallback" };
   }
 
@@ -32,26 +42,48 @@ export async function planJourney(
     ScoredRoute,
     "score" | "scoreBreakdown" | "explanations" | "tags"
   >[] = [];
+  let source: "otp" | "gtfs" | "fallback" = "fallback";
 
   const otpUp = await isOtpAvailable();
   if (otpUp) {
-    rawRoutes = await planWithOtp({
-      from,
-      to,
+    for (const fromId of fromStopIds) {
+      for (const toId of toStopIds) {
+        const from = getStopById(fromId);
+        const to = getStopById(toId);
+        if (!from || !to) continue;
+        const routes = await planWithOtp({ from, to, mode: request.mode, time });
+        rawRoutes.push(...routes);
+      }
+    }
+    if (rawRoutes.length > 0) source = "otp";
+  }
+
+  if (rawRoutes.length === 0 && isGtfsGraphAvailable()) {
+    rawRoutes = planWithGtfs({
+      fromStopIds,
+      toStopIds,
       mode: request.mode,
       time,
     });
+    if (rawRoutes.length > 0) source = "gtfs";
   }
 
   if (rawRoutes.length === 0) {
-    rawRoutes = planWithFallback({
-      fromStopId: request.fromStopId,
-      toStopId: request.toStopId,
-      mode: request.mode,
-      time,
-    });
+    for (const fromId of fromStopIds) {
+      for (const toId of toStopIds) {
+        rawRoutes.push(
+          ...planWithFallback({
+            fromStopId: fromId,
+            toStopId: toId,
+            mode: request.mode,
+            time,
+          }),
+        );
+      }
+    }
+    source = "fallback";
   }
 
   const routes = rankRoutes(rawRoutes, preferences, request.weights);
-  return { routes, source: otpUp && rawRoutes.length > 0 ? "otp" : "fallback" };
+  return { routes, source };
 }

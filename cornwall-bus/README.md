@@ -23,9 +23,17 @@ Open [http://localhost:3000](http://localhost:3000) on your phone or browser.
 
 ### First-time setup
 
-1. Go to **Setup** and pick your home and college stops
+1. Go to **Setup** and pick **all nearby home and college stops** you might use (e.g. every campus stand, both sides of the road)
 2. Open **Preferences** to adjust route priorities and mark stops to prefer/avoid
 3. Use **Today** to see ranked outbound and return routes
+
+### Route data
+
+Timetables come from [Transport for Cornwall open data](https://www.transportforcornwall.co.uk/open-data) (GTFS). On first build, run:
+
+```bash
+npm run prepare-data   # downloads GTFS + builds routing graph (~20 MB)
+```
 
 ## Environment variables
 

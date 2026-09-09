@@ -8,8 +8,10 @@ import {
 import type { StopPreference, WeightPreferences } from "@/lib/types";
 
 const requestSchema = z.object({
-  fromStopId: z.string(),
-  toStopId: z.string(),
+  fromStopId: z.string().optional(),
+  toStopId: z.string().optional(),
+  fromStopIds: z.array(z.string()).optional(),
+  toStopIds: z.array(z.string()).optional(),
   mode: z.enum(["arrive-by", "depart-after"]),
   time: z.string(),
   date: z.string().optional(),
@@ -47,10 +49,24 @@ export async function POST(request: NextRequest) {
     const preferences: StopPreference[] = data.stopPreferences ?? [];
     const weights: WeightPreferences | undefined = data.weights;
 
+    const hasStops =
+      (data.fromStopIds?.length ?? 0) > 0 ||
+      (data.toStopIds?.length ?? 0) > 0 ||
+      (data.fromStopId && data.toStopId);
+
+    if (!hasStops) {
+      return NextResponse.json(
+        { error: "At least one origin and destination stop required" },
+        { status: 400 },
+      );
+    }
+
     const { routes, source } = await planJourney(
       {
         fromStopId: data.fromStopId,
         toStopId: data.toStopId,
+        fromStopIds: data.fromStopIds,
+        toStopIds: data.toStopIds,
         mode: data.mode,
         time: data.time,
         date: data.date,

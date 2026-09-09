@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { StopPicker } from "@/components/StopPicker";
+import { MultiStopPicker } from "@/components/MultiStopPicker";
 import { BottomNav } from "@/components/BottomNav";
 import type { BusStop } from "@/lib/types";
 import {
@@ -10,35 +10,50 @@ import {
   saveLocalProfile,
   type LocalProfile,
 } from "@/lib/profile-store";
-import { getStopById } from "@/lib/stops";
+import { getStopsByIds, getRelatedStops } from "@/lib/stops";
 
 function loadInitialSetup() {
   const local = getLocalProfile();
   return {
-    home: local ? getStopById(local.homeStopId) ?? null : null,
-    college: local ? getStopById(local.collegeStopId) ?? null : null,
+    home: local ? getStopsByIds(local.homeStopIds) : [],
+    college: local ? getStopsByIds(local.collegeStopIds) : [],
     displayName: local?.displayName ?? "",
     arriveBy: local?.arriveBy ?? "09:00",
     leaveAfter: local?.leaveAfter ?? "17:00",
   };
 }
 
+/** When first stop added, auto-include nearby equivalents */
+function withNearbyDefaults(stops: BusStop[]): BusStop[] {
+  if (stops.length !== 1) return stops;
+  const related = getRelatedStops(stops[0]);
+  return related.slice(0, 6);
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const initial = loadInitialSetup();
-  const [home, setHome] = useState<BusStop | null>(initial.home);
-  const [college, setCollege] = useState<BusStop | null>(initial.college);
+  const [home, setHome] = useState<BusStop[]>(initial.home);
+  const [college, setCollege] = useState<BusStop[]>(initial.college);
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [arriveBy, setArriveBy] = useState(initial.arriveBy);
   const [leaveAfter, setLeaveAfter] = useState(initial.leaveAfter);
   const [saved, setSaved] = useState(false);
 
+  function handleHomeChange(stops: BusStop[]) {
+    setHome(stops.length === 1 ? withNearbyDefaults(stops) : stops);
+  }
+
+  function handleCollegeChange(stops: BusStop[]) {
+    setCollege(stops.length === 1 ? withNearbyDefaults(stops) : stops);
+  }
+
   function handleSave() {
-    if (!home || !college) return;
+    if (home.length === 0 || college.length === 0) return;
 
     const profile: LocalProfile = {
-      homeStopId: home.id,
-      collegeStopId: college.id,
+      homeStopIds: home.map((s) => s.id),
+      collegeStopIds: college.map((s) => s.id),
       displayName: displayName || undefined,
       arriveBy,
       leaveAfter,
@@ -54,16 +69,21 @@ export default function SetupPage() {
       <header className="px-4 py-6">
         <h1 className="text-xl font-bold text-slate-900">Journey setup</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Choose your home and college bus stops
+          Choose all nearby stops you might use at home and college
         </p>
       </header>
 
       <main className="mx-auto max-w-lg space-y-5 px-4">
-        <StopPicker label="Home stop" value={home} onChange={setHome} />
-        <StopPicker
-          label="College stop"
-          value={college}
-          onChange={setCollege}
+        <MultiStopPicker
+          label="Home stops"
+          selected={home}
+          onChange={handleHomeChange}
+          placeholder="Search your home area…"
+        />
+        <MultiStopPicker
+          label="College stops"
+          selected={college}
+          onChange={handleCollegeChange}
           placeholder="Search campus or nearest stop…"
         />
 
@@ -108,17 +128,30 @@ export default function SetupPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!home || !college}
+          disabled={home.length === 0 || college.length === 0}
           className="w-full rounded-xl bg-teal-600 py-3 font-semibold text-white shadow-lg hover:bg-teal-700 disabled:opacity-40"
         >
           {saved ? "Saved! Redirecting…" : "Save journey"}
         </button>
 
         <div className="rounded-xl bg-white p-4 text-sm text-slate-600 shadow-sm">
-          <p className="font-medium text-slate-800">Quick picks</p>
-          <p className="mt-2 text-xs">
-            Try searching &quot;Penryn&quot;, &quot;Falmouth Uni&quot;, or
-            &quot;College&quot; for campus stops.
+          <p className="font-medium text-slate-800">Why multiple stops?</p>
+          <p className="mt-2 text-xs leading-relaxed">
+            Bus routes often serve several stops at the same place — campus
+            Stand A, B, C, D, or both sides of a road. Selecting all nearby
+            stops means the planner can find routes even when one stand has no
+            service.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Data from{" "}
+            <a
+              href="https://www.transportforcornwall.co.uk/open-data"
+              className="text-teal-700 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Transport for Cornwall
+            </a>
           </p>
         </div>
       </main>

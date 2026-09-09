@@ -4,11 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "test -f data/gtfs/graph.json || npm run build-gtfs-graph",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "ingest-gtfs": "npx tsx scripts/ingest-gtfs.ts",
-    "import-naptan": "npx tsx scripts/import-naptan.ts"
+    "download-tfc-gtfs": "npx tsx scripts/download-tfc-gtfs.ts",
+    "build-gtfs-graph": "npx tsx scripts/build-gtfs-graph.ts",
+    "import-naptan": "npx tsx scripts/import-naptan.ts",
+    "prepare-data": "npx tsx scripts/download-tfc-gtfs.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

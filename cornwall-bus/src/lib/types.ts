@@ -23,8 +23,14 @@ export interface WeightPreferences {
 
 export interface UserProfile {
   id: string;
-  homeStopId: string;
-  collegeStopId: string;
+  homeStopIds: string[];
+  collegeStopIds: string[];
+  homeStops?: BusStop[];
+  collegeStops?: BusStop[];
+  /** @deprecated use homeStopIds */
+  homeStopId?: string;
+  /** @deprecated use collegeStopIds */
+  collegeStopId?: string;
   homeStop?: BusStop;
   collegeStop?: BusStop;
   displayName?: string;
@@ -75,8 +81,12 @@ export interface LiveDeparture {
 }
 
 export interface JourneyRequest {
-  fromStopId: string;
-  toStopId: string;
+  /** Single stop (legacy) */
+  fromStopId?: string;
+  toStopId?: string;
+  /** Multiple nearby stops — routes planned across all combinations */
+  fromStopIds?: string[];
+  toStopIds?: string[];
   mode: "arrive-by" | "depart-after";
   time: string; // ISO or HH:mm
   date?: string; // YYYY-MM-DD

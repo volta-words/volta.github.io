@@ -1,5 +1,5 @@
 import type { StopPreference, UserProfile, WeightPreferences } from "./types";
-import { getStopById } from "./stops";
+import { getStopById, getStopsByIds } from "./stops";
 
 const PROFILE_KEY = "cornwall-bus-profile";
 const PREFS_KEY = "cornwall-bus-stop-prefs";
@@ -8,11 +8,32 @@ const WEIGHTS_KEY = "cornwall-bus-weights";
 const DEFAULT_WEIGHTS: WeightPreferences = { speed: 50, changes: 25, stops: 25 };
 
 export interface LocalProfile {
-  homeStopId: string;
-  collegeStopId: string;
+  homeStopIds: string[];
+  collegeStopIds: string[];
   displayName?: string;
   arriveBy?: string;
   leaveAfter?: string;
+  /** @deprecated migrated to homeStopIds */
+  homeStopId?: string;
+  /** @deprecated migrated to collegeStopIds */
+  collegeStopId?: string;
+}
+
+function migrateProfile(raw: LocalProfile): LocalProfile {
+  const homeStopIds =
+    raw.homeStopIds?.length > 0
+      ? raw.homeStopIds
+      : raw.homeStopId
+        ? [raw.homeStopId]
+        : [];
+  const collegeStopIds =
+    raw.collegeStopIds?.length > 0
+      ? raw.collegeStopIds
+      : raw.collegeStopId
+        ? [raw.collegeStopId]
+        : [];
+
+  return { ...raw, homeStopIds, collegeStopIds };
 }
 
 export function getLocalProfile(): LocalProfile | null {
@@ -20,7 +41,7 @@ export function getLocalProfile(): LocalProfile | null {
   const raw = localStorage.getItem(PROFILE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    return migrateProfile(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -64,16 +85,21 @@ export function buildUserProfile(): UserProfile | null {
   const local = getLocalProfile();
   if (!local) return null;
 
-  const home = getStopById(local.homeStopId);
-  const college = getStopById(local.collegeStopId);
-  if (!home || !college) return null;
+  const homeStops = getStopsByIds(local.homeStopIds);
+  const collegeStops = getStopsByIds(local.collegeStopIds);
+
+  if (homeStops.length === 0 || collegeStops.length === 0) return null;
 
   return {
     id: "local",
-    homeStopId: local.homeStopId,
-    collegeStopId: local.collegeStopId,
-    homeStop: home,
-    collegeStop: college,
+    homeStopIds: local.homeStopIds,
+    collegeStopIds: local.collegeStopIds,
+    homeStops,
+    collegeStops,
+    homeStop: homeStops[0],
+    collegeStop: collegeStops[0],
+    homeStopId: homeStops[0].id,
+    collegeStopId: collegeStops[0].id,
     displayName: local.displayName,
     weights: getLocalWeights(),
   };

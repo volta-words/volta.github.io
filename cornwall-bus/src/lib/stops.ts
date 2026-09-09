@@ -24,6 +24,62 @@ export function getStopById(id: string): BusStop | undefined {
   return loadStops().find((s) => s.id === id);
 }
 
+export function getStopsByIds(ids: string[]): BusStop[] {
+  return ids.map((id) => getStopById(id)).filter((s): s is BusStop => !!s);
+}
+
+/** Haversine distance in metres */
+function distanceM(a: BusStop, b: BusStop): number {
+  const R = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+/**
+ * Find nearby stops — same name/locality or within radius.
+ * Used to multi-select equivalent stops (e.g. campus Stand A/B/C/D).
+ */
+export function getRelatedStops(
+  stop: BusStop,
+  radiusM = 500,
+): BusStop[] {
+  const stops = loadStops();
+  const related: BusStop[] = [stop];
+  const seen = new Set<string>([stop.id]);
+
+  for (const other of stops) {
+    if (seen.has(other.id)) continue;
+
+    const samePlace =
+      other.name.toLowerCase() === stop.name.toLowerCase() &&
+      (other.locality ?? "").toLowerCase() === (stop.locality ?? "").toLowerCase();
+
+    const nearby = distanceM(stop, other) <= radiusM;
+
+    // Same campus/location name prefix (e.g. "Falmouth Uni Penryn Campus")
+    const sameCampus =
+      stop.name.length > 8 &&
+      other.name.length > 8 &&
+      stop.name.toLowerCase().slice(0, 12) === other.name.toLowerCase().slice(0, 12) &&
+      (other.locality ?? "").toLowerCase() === (stop.locality ?? "").toLowerCase();
+
+    if (samePlace || nearby || sameCampus) {
+      related.push(other);
+      seen.add(other.id);
+    }
+  }
+
+  return related.sort(
+    (a, b) => distanceM(stop, a) - distanceM(stop, b),
+  );
+}
+
 export function searchStops(query: string, limit = 20): BusStop[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -50,7 +106,6 @@ export function searchStops(query: string, limit = 20): BusStop[] {
 
   scored.sort((a, b) => b.score - a.score || a.stop.name.localeCompare(b.stop.name));
 
-  // Deduplicate by name+locality (keep highest scored)
   const seen = new Set<string>();
   const results: BusStop[] = [];
   for (const { stop } of scored) {
@@ -62,6 +117,30 @@ export function searchStops(query: string, limit = 20): BusStop[] {
   }
 
   return results;
+}
+
+/** Search returning all matching stops including duplicates at same location */
+export function searchStopsExpanded(query: string, limit = 30): BusStop[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const stops = loadStops();
+  const scored: { stop: BusStop; score: number }[] = [];
+
+  for (const stop of stops) {
+    const haystack = `${stop.name} ${stop.locality ?? ""} ${stop.indicator ?? ""}`.toLowerCase();
+    if (!haystack.includes(q)) continue;
+
+    let score = 0;
+    if (stop.name.toLowerCase().startsWith(q)) score += 10;
+    else if (stop.name.toLowerCase().includes(q)) score += 5;
+    if ((stop.locality ?? "").toLowerCase().includes(q)) score += 3;
+
+    scored.push({ stop, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.stop.name.localeCompare(b.stop.name));
+  return scored.slice(0, limit).map((s) => s.stop);
 }
 
 export function formatStopLabel(stop: BusStop): string {

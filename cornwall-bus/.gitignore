@@ -41,5 +41,6 @@ next-env.d.ts
 # gtfs downloads
 /data/gtfs/*.zip
 /data/gtfs/extracted/
+/data/gtfs/graph.json
 /data/otp/
 /data/naptan-national.csv

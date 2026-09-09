@@ -55,8 +55,8 @@ export default function TodayPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromStopId: p.homeStopId,
-            toStopId: p.collegeStopId,
+            fromStopIds: p.homeStopIds,
+            toStopIds: p.collegeStopIds,
             mode: "arrive-by",
             time: arriveBy,
             date,
@@ -68,8 +68,8 @@ export default function TodayPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromStopId: p.collegeStopId,
-            toStopId: p.homeStopId,
+            fromStopIds: p.collegeStopIds,
+            toStopIds: p.homeStopIds,
             mode: "depart-after",
             time: leaveAfter,
             date,
@@ -135,7 +135,7 @@ export default function TodayPage() {
         <h1 className="text-xl font-bold text-slate-900">Today&apos;s plan</h1>
         <p className="text-xs text-slate-600">
           {profile.displayName ??
-            `${formatStopLabel(profile.homeStop!)} → ${formatStopLabel(profile.collegeStop!)}`}
+            `${profile.homeStops!.length} home stop${profile.homeStops!.length > 1 ? "s" : ""} → ${profile.collegeStops!.length} college stop${profile.collegeStops!.length > 1 ? "s" : ""}`}
         </p>
         {liveAge !== null && (
           <p className="mt-1 text-xs text-teal-700">
@@ -177,7 +177,12 @@ export default function TodayPage() {
           </button>
           {source && (
             <p className="mt-2 text-center text-xs text-slate-400">
-              Routing via {source === "otp" ? "OpenTripPlanner" : "built-in timetable"}
+              Routing via{" "}
+              {source === "otp"
+                ? "OpenTripPlanner"
+                : source === "gtfs"
+                  ? "Transport for Cornwall timetables"
+                  : "built-in timetable"}
             </p>
           )}
         </section>
@@ -195,7 +200,16 @@ export default function TodayPage() {
           {loading && outbound.length === 0 ? (
             <p className="text-sm text-slate-500">Loading routes…</p>
           ) : outbound.length === 0 ? (
-            <p className="text-sm text-slate-500">No outbound routes found.</p>
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">No outbound routes found.</p>
+              <p className="mt-1 text-xs">
+                Try adding more nearby stops in{" "}
+                <Link href="/setup" className="underline">
+                  Setup
+                </Link>{" "}
+                — e.g. all campus stands or both sides of the road.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {outbound.map((route, i) => (
@@ -220,7 +234,13 @@ export default function TodayPage() {
           {loading && inbound.length === 0 ? (
             <p className="text-sm text-slate-500">Loading routes…</p>
           ) : inbound.length === 0 ? (
-            <p className="text-sm text-slate-500">No return routes found.</p>
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">No return routes found.</p>
+              <p className="mt-1 text-xs">
+                Add more nearby college or home stops in Setup, or check the
+                time is within service hours.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {inbound.map((route, i) => (
