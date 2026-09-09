@@ -17,6 +17,39 @@ function formatTime(iso: string): string {
   return formatCornwallTime(iso);
 }
 
+function TimetableLinks({ route }: { route: ScoredRoute }) {
+  const links = route.legs
+    .filter((l) => l.mode === "BUS" && l.routeShortName && l.timetableUrl)
+    .reduce<{ route: string; url: string }[]>((acc, leg) => {
+      if (!acc.some((x) => x.route === leg.routeShortName)) {
+        acc.push({ route: leg.routeShortName!, url: leg.timetableUrl! });
+      }
+      return acc;
+    }, []);
+
+  if (links.length === 0) return null;
+
+  return (
+    <div
+      className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="text-slate-500">Go Cornwall timetables:</span>
+      {links.map(({ route: r, url }) => (
+        <a
+          key={r}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-teal-700 underline hover:text-teal-900"
+        >
+          {r} ↗
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
   return (
     <article
@@ -75,6 +108,7 @@ export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
                 Tap to see where to change on the map
               </p>
             )}
+            <TimetableLinks route={route} />
           </div>
           {route.delayMinutes !== undefined && route.delayMinutes !== 0 && (
             <span
@@ -135,6 +169,17 @@ export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
                     {leg.mode === "BUS" ? (
                       <>
                         <span className="font-semibold">{leg.routeShortName}</span>
+                        {leg.timetableUrl && (
+                          <a
+                            href={leg.timetableUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 text-xs font-medium text-teal-800 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Timetable ↗
+                          </a>
+                        )}
                         {leg.routeLongName && (
                           <span className="ml-2 text-xs opacity-75">
                             {leg.routeLongName}
@@ -168,6 +213,19 @@ export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
               </li>
             ))}
           </ol>
+          <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+            Timetables from{" "}
+            <a
+              href="https://www.transportforcornwall.co.uk/services"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-teal-700 underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Transport for Cornwall ↗
+            </a>
+            {" "}(Go Cornwall Bus network)
+          </p>
         </div>
       )}
     </article>

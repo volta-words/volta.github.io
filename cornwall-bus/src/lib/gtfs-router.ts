@@ -3,6 +3,7 @@ import { join } from "path";
 import type { RouteLeg, ScoredRoute } from "./types";
 import { getAllStops, getStopById } from "./stops";
 import { cornwallSecondsToIso, parseCornwallTime } from "./cornwall-time";
+import { getTfcTimetableUrl } from "./timetable-links";
 
 interface TripStop {
   stopId: string;
@@ -364,6 +365,7 @@ function legToRouteLeg(
     toStop: to,
     routeShortName: leg.route,
     routeLongName: leg.routeName,
+    timetableUrl: getTfcTimetableUrl(leg.route),
     departureTime,
     arrivalTime,
     durationMinutes: Math.round((leg.arriveSec - leg.departSec) / 60),

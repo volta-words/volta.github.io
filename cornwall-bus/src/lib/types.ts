@@ -43,6 +43,8 @@ export interface RouteLeg {
   toStop: BusStop;
   routeShortName?: string;
   routeLongName?: string;
+  /** Transport for Cornwall timetable page for this route */
+  timetableUrl?: string;
   departureTime: string;
   arrivalTime: string;
   durationMinutes: number;
