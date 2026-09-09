@@ -38,6 +38,8 @@ export async function planJourney(
   }
 
   const time = parseTime(request.time, request.date);
+  const date =
+    request.date ?? time.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
   let rawRoutes: Omit<
     ScoredRoute,
     "score" | "scoreBreakdown" | "explanations" | "tags"
@@ -50,7 +52,8 @@ export async function planJourney(
       fromStopIds,
       toStopIds,
       mode: request.mode,
-      time,
+      time: request.time,
+      date,
     });
     if (rawRoutes.length > 0) source = "gtfs";
   }

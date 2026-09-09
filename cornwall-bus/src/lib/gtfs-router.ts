@@ -1,8 +1,8 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { addSeconds, format, parse } from "date-fns";
 import type { RouteLeg, ScoredRoute } from "./types";
 import { getAllStops, getStopById } from "./stops";
+import { cornwallSecondsToIso, parseCornwallTime } from "./cornwall-time";
 
 interface TripStop {
   stopId: string;
@@ -30,8 +30,8 @@ interface TimedLeg {
   serviceId: string;
   fromId: string;
   toId: string;
-  depart: Date;
-  arrive: Date;
+  departSec: number;
+  arriveSec: number;
 }
 
 interface DepartureRef {
@@ -45,8 +45,9 @@ let departureBoards: Map<string, DepartureRef[]> | null = null;
 let stopsWithService: Set<string> | null = null;
 
 const MIN_LEG_MINUTES = 4;
-const MIN_TRANSFER_MS = 2 * 60 * 1000;
+const MIN_TRANSFER_SEC = 2 * 60;
 const MAX_PATHS = 25;
+const END_OF_SERVICE_SEC = 30 * 3600; // GTFS trips can run past midnight
 
 function loadGraph(): GtfsGraphData | null {
   if (graphCache) return graphCache;
@@ -91,14 +92,10 @@ function buildIndexes(data: GtfsGraphData): void {
   stopsWithService = served;
 }
 
-function dateToGtfs(d: Date): string {
-  return format(d, "yyyy-MM-dd");
-}
-
-function getActiveServices(data: GtfsGraphData, date: Date): Set<string> {
+function getActiveServices(data: GtfsGraphData, date: string): Set<string> {
   const active = new Set<string>();
-  const dateStr = dateToGtfs(date).replace(/-/g, "");
-  const dow = date.getDay();
+  const dateStr = date.replace(/-/g, "");
+  const dow = new Date(`${date}T12:00:00Z`).getUTCDay();
 
   for (const [serviceId, cal] of Object.entries(data.calendars)) {
     const exceptions = data.calendarDates[serviceId] ?? {};
@@ -114,11 +111,6 @@ function getActiveServices(data: GtfsGraphData, date: Date): Set<string> {
   }
 
   return active;
-}
-
-function secondsToDate(baseDate: Date, seconds: number): Date {
-  const dayStart = parse(format(baseDate, "yyyy-MM-dd"), "yyyy-MM-dd", new Date());
-  return addSeconds(dayStart, seconds);
 }
 
 function lowerBoundDepartures(board: DepartureRef[], afterSeconds: number): number {
@@ -138,7 +130,6 @@ function makeLeg(
   fromStopId: string,
   fromIndex: number,
   toIndex: number,
-  baseDate: Date,
 ): TimedLeg {
   const boardStop = trip.stops[fromIndex];
   const alightStop = trip.stops[toIndex];
@@ -149,21 +140,22 @@ function makeLeg(
     serviceId: trip.serviceId,
     fromId: fromStopId,
     toId: alightStop.stopId,
-    depart: secondsToDate(baseDate, boardStop.dep),
-    arrive: secondsToDate(baseDate, alightStop.arr),
+    departSec: boardStop.dep,
+    arriveSec: alightStop.arr,
   };
 }
 
 function legMeetsConstraint(
   path: TimedLeg[],
-  constraint: { mode: "arrive-by" | "depart-after"; time: Date },
+  mode: "arrive-by" | "depart-after",
+  constraintSec: number,
 ): boolean {
   if (path.length === 0) return false;
-  const arrival = path[path.length - 1].arrive;
-  const departure = path[0].depart;
+  const arrival = path[path.length - 1].arriveSec;
+  const departure = path[0].departSec;
 
-  if (constraint.mode === "arrive-by") return arrival <= constraint.time;
-  return departure >= constraint.time;
+  if (mode === "arrive-by") return arrival <= constraintSec;
+  return departure >= constraintSec;
 }
 
 /** Scan departures from one stop for legs to targets or useful transfer points */
@@ -171,12 +163,11 @@ function scanDepartures(
   data: GtfsGraphData,
   activeServices: Set<string>,
   fromStopId: string,
-  baseDate: Date,
-  afterSeconds: number,
-  windowEndMs: number,
+  afterSec: number,
   mode: "arrive-by" | "depart-after",
   toIds: Set<string>,
   allowTransfers: boolean,
+  maxDepartSec: number,
 ): TimedLeg[] {
   if (!departureBoards) return [];
 
@@ -184,32 +175,29 @@ function scanDepartures(
   if (!board?.length) return [];
 
   const legs: TimedLeg[] = [];
-  const startIdx = lowerBoundDepartures(board, afterSeconds);
+  const startIdx = lowerBoundDepartures(board, afterSec);
 
   for (let i = startIdx; i < board.length; i++) {
     const ref = board[i];
+    if (ref.dep > maxDepartSec) break;
+
     const trip = data.trips[ref.tripId];
     if (!trip || !activeServices.has(trip.serviceId)) continue;
 
-    const boardStop = trip.stops[ref.stopIndex];
-    const depart = secondsToDate(baseDate, boardStop.dep);
-    const depMs = depart.getTime();
-
-    if (mode === "depart-after" && depMs > windowEndMs) break;
+    const depSec = trip.stops[ref.stopIndex].dep;
 
     for (let j = ref.stopIndex + 1; j < trip.stops.length; j++) {
       const alightStop = trip.stops[j];
-      const arrive = secondsToDate(baseDate, alightStop.arr);
-      const arrMs = arrive.getTime();
-      const durationMin = (arrMs - depMs) / 60000;
+      const arrSec = alightStop.arr;
+      const durationMin = (arrSec - depSec) / 60;
 
-      if (mode === "arrive-by" && arrMs > windowEndMs) continue;
+      if (mode === "arrive-by" && arrSec > maxDepartSec) continue;
 
       const isTarget = toIds.has(alightStop.stopId);
       if (!isTarget && durationMin < MIN_LEG_MINUTES) continue;
       if (!isTarget && !allowTransfers) continue;
 
-      legs.push(makeLeg(trip, ref.tripId, fromStopId, ref.stopIndex, j, baseDate));
+      legs.push(makeLeg(trip, ref.tripId, fromStopId, ref.stopIndex, j));
     }
   }
 
@@ -221,57 +209,48 @@ function findPaths(
   activeServices: Set<string>,
   fromIds: string[],
   toIds: Set<string>,
-  baseDate: Date,
-  constraint: { mode: "arrive-by" | "depart-after"; time: Date },
+  date: string,
+  mode: "arrive-by" | "depart-after",
+  constraintSec: number,
   maxTransfers = 3,
 ): TimedLeg[][] {
   const paths: TimedLeg[][] = [];
   const seenPathKeys = new Set<string>();
 
-  const windowStartMs =
-    constraint.mode === "depart-after"
-      ? constraint.time.getTime()
-      : constraint.time.getTime() - 5 * 3600 * 1000;
-  const windowEndMs =
-    constraint.mode === "arrive-by"
-      ? constraint.time.getTime()
-      : constraint.time.getTime() + 4 * 3600 * 1000;
+  const windowStartSec =
+    mode === "depart-after"
+      ? constraintSec
+      : Math.max(0, constraintSec - 5 * 3600);
 
-  const dayStartMs = parse(
-    format(baseDate, "yyyy-MM-dd"),
-    "yyyy-MM-dd",
-    new Date(),
-  ).getTime();
-  const startAfterSeconds = Math.floor(
-    (constraint.mode === "depart-after"
-      ? constraint.time.getTime()
-      : windowStartMs - dayStartMs) / 1000,
-  );
+  // arrive-by: cap arrivals at constraint; depart-after: no upper cap on first departure
+  const firstLegMaxSec =
+    mode === "arrive-by" ? constraintSec : END_OF_SERVICE_SEC;
+  const transferArrivalMaxSec =
+    mode === "arrive-by" ? constraintSec : END_OF_SERVICE_SEC;
 
   function addPath(path: TimedLeg[]) {
     if (paths.length >= MAX_PATHS) return;
-    if (!legMeetsConstraint(path, constraint)) return;
+    if (!legMeetsConstraint(path, mode, constraintSec)) return;
 
     const key = path
-      .map((l) => `${l.tripId}:${l.fromId}->${l.toId}@${l.depart.getTime()}`)
+      .map((l) => `${l.tripId}:${l.fromId}->${l.toId}@${l.departSec}`)
       .join("|");
     if (seenPathKeys.has(key)) return;
     seenPathKeys.add(key);
     paths.push(path);
   }
 
-  // Round 1: direct trips (fast — one scan per origin stop)
+  // Round 1: direct trips
   for (const fromId of fromIds) {
     const legs = scanDepartures(
       data,
       activeServices,
       fromId,
-      baseDate,
-      startAfterSeconds,
-      windowEndMs,
-      constraint.mode,
+      windowStartSec,
+      mode,
       toIds,
       false,
+      firstLegMaxSec,
     );
     for (const leg of legs) {
       if (toIds.has(leg.toId)) addPath([leg]);
@@ -280,60 +259,65 @@ function findPaths(
 
   if (paths.length >= 8) return paths;
 
-  // Round 2+: transfers via DFS, but only from promising first legs
-  function dfs(path: TimedLeg[]) {
+  function dfs(path: TimedLeg[], isFirstHop: boolean) {
     if (paths.length >= MAX_PATHS) return;
     if (path.length > maxTransfers + 1) return;
 
     const currentId = path[path.length - 1].toId;
-    const earliest = path[path.length - 1].arrive;
-    const afterSeconds = Math.floor((earliest.getTime() - dayStartMs) / 1000);
+    const earliestSec = path[path.length - 1].arriveSec + MIN_TRANSFER_SEC;
 
     const legOptions = scanDepartures(
       data,
       activeServices,
       currentId,
-      baseDate,
-      afterSeconds,
-      windowEndMs,
-      constraint.mode,
+      earliestSec,
+      mode,
       toIds,
       true,
+      transferArrivalMaxSec,
     );
 
-    // Prefer legs that reach destination, then earliest departures
     const targets = legOptions.filter((l) => toIds.has(l.toId));
     const transfers = legOptions.filter((l) => !toIds.has(l.toId));
     const sorted =
-      constraint.mode === "arrive-by"
-        ? [...targets.sort((a, b) => b.arrive.getTime() - a.arrive.getTime()),
-           ...transfers.sort((a, b) => a.depart.getTime() - b.depart.getTime()).slice(0, 8)]
-        : [...targets.sort((a, b) => a.depart.getTime() - b.depart.getTime()),
-           ...transfers.sort((a, b) => a.depart.getTime() - b.depart.getTime()).slice(0, 8)];
+      mode === "arrive-by"
+        ? [
+            ...targets.sort((a, b) => b.arriveSec - a.arriveSec),
+            ...transfers
+              .sort((a, b) => a.departSec - b.departSec)
+              .slice(0, 12),
+          ]
+        : [
+            ...targets.sort((a, b) => a.departSec - b.departSec),
+            ...transfers
+              .sort((a, b) => a.departSec - b.departSec)
+              .slice(0, 12),
+          ];
 
     for (const leg of sorted) {
-      if (leg.depart.getTime() - earliest.getTime() < MIN_TRANSFER_MS) continue;
+      if (leg.departSec < earliestSec) continue;
 
       const next = [...path, leg];
       if (toIds.has(leg.toId)) {
         addPath(next);
       } else {
-        dfs(next);
+        dfs(next, false);
       }
     }
   }
+
+  const firstHopLimit = mode === "depart-after" ? 20 : 10;
 
   for (const fromId of fromIds) {
     const firstLegs = scanDepartures(
       data,
       activeServices,
       fromId,
-      baseDate,
-      startAfterSeconds,
-      windowEndMs,
-      constraint.mode,
+      windowStartSec,
+      mode,
       toIds,
       true,
+      firstLegMaxSec,
     );
 
     const targets = firstLegs.filter((l) => toIds.has(l.toId));
@@ -341,13 +325,12 @@ function findPaths(
 
     for (const leg of targets) addPath([leg]);
 
-    const transferCandidates =
-      constraint.mode === "arrive-by"
-        ? transfers.sort((a, b) => a.depart.getTime() - b.depart.getTime()).slice(0, 6)
-        : transfers.sort((a, b) => a.depart.getTime() - b.depart.getTime()).slice(0, 6);
+    const transferCandidates = transfers
+      .sort((a, b) => a.departSec - b.departSec)
+      .slice(0, firstHopLimit);
 
     for (const leg of transferCandidates) {
-      dfs([leg]);
+      dfs([leg], true);
       if (paths.length >= MAX_PATHS) break;
     }
 
@@ -357,10 +340,17 @@ function findPaths(
   return paths;
 }
 
-function legToRouteLeg(leg: TimedLeg, isTransfer: boolean): RouteLeg | null {
+function legToRouteLeg(
+  leg: TimedLeg,
+  date: string,
+  isTransfer: boolean,
+): RouteLeg | null {
   const from = getStopById(leg.fromId);
   const to = getStopById(leg.toId);
   if (!from || !to) return null;
+
+  const departureTime = cornwallSecondsToIso(date, leg.departSec);
+  const arrivalTime = cornwallSecondsToIso(date, leg.arriveSec);
 
   return {
     mode: "BUS",
@@ -368,22 +358,21 @@ function legToRouteLeg(leg: TimedLeg, isTransfer: boolean): RouteLeg | null {
     toStop: to,
     routeShortName: leg.route,
     routeLongName: leg.routeName,
-    departureTime: leg.depart.toISOString(),
-    arrivalTime: leg.arrive.toISOString(),
-    durationMinutes: Math.round(
-      (leg.arrive.getTime() - leg.depart.getTime()) / 60000,
-    ),
+    departureTime,
+    arrivalTime,
+    durationMinutes: Math.round((leg.arriveSec - leg.departSec) / 60),
     isTransfer,
   };
 }
 
 function pathToRoute(
   legs: TimedLeg[],
+  date: string,
   index: number,
 ): Omit<ScoredRoute, "score" | "scoreBreakdown" | "explanations" | "tags"> | null {
   const routeLegs: RouteLeg[] = [];
   for (let i = 0; i < legs.length; i++) {
-    const rl = legToRouteLeg(legs[i], i > 0);
+    const rl = legToRouteLeg(legs[i], date, i > 0);
     if (!rl) return null;
     routeLegs.push(rl);
   }
@@ -394,13 +383,12 @@ function pathToRoute(
     .filter((s): s is NonNullable<typeof s> => !!s);
 
   return {
-    id: `gtfs-${index}-${legs[0].depart.getTime()}`,
+    id: `gtfs-${index}-${legs[0].departSec}`,
     legs: routeLegs,
-    departureTime: legs[0].depart.toISOString(),
-    arrivalTime: legs[legs.length - 1].arrive.toISOString(),
+    departureTime: cornwallSecondsToIso(date, legs[0].departSec),
+    arrivalTime: cornwallSecondsToIso(date, legs[legs.length - 1].arriveSec),
     durationMinutes: Math.round(
-      (legs[legs.length - 1].arrive.getTime() - legs[0].depart.getTime()) /
-        60000,
+      (legs[legs.length - 1].arriveSec - legs[0].departSec) / 60,
     ),
     numTransfers: legs.length - 1,
     transferStops,
@@ -428,10 +416,6 @@ export function isStopInGtfs(stopId: string): boolean {
   return stopsWithService?.has(stopId) ?? false;
 }
 
-/**
- * Expand stop IDs to include nearby stops that actually have bus service in GTFS.
- * NaPTAN lists more stops than appear in the timetable (e.g. campus Stand B).
- */
 export function expandGtfsStopIds(stopIds: string[], radiusM = 350): string[] {
   loadGraph();
   if (!stopsWithService) return stopIds;
@@ -472,7 +456,8 @@ export function planWithGtfs(params: {
   fromStopIds: string[];
   toStopIds: string[];
   mode: "arrive-by" | "depart-after";
-  time: Date;
+  time: string;
+  date: string;
 }): Omit<
   ScoredRoute,
   "score" | "scoreBreakdown" | "explanations" | "tags"
@@ -484,10 +469,10 @@ export function planWithGtfs(params: {
     departureBoards!.has(id),
   );
   const toStopIds = expandGtfsStopIds(params.toStopIds);
-  const { mode, time } = params;
+  const { mode, time: timeStr, date } = params;
+  const { seconds: constraintSec } = parseCornwallTime(timeStr, date);
   const toSet = new Set(toStopIds);
-  const baseDate = parse(format(time, "yyyy-MM-dd"), "yyyy-MM-dd", new Date());
-  const activeServices = getActiveServices(data, baseDate);
+  const activeServices = getActiveServices(data, date);
 
   if (activeServices.size === 0 || fromStopIds.length === 0) return [];
 
@@ -496,8 +481,9 @@ export function planWithGtfs(params: {
     activeServices,
     fromStopIds,
     toSet,
-    baseDate,
-    { mode, time },
+    date,
+    mode,
+    constraintSec,
   );
 
   const seen = new Set<string>();
@@ -508,19 +494,19 @@ export function planWithGtfs(params: {
 
   allPaths.sort((a, b) => {
     if (a.length !== b.length) return a.length - b.length;
-    const aDur = a[a.length - 1].arrive.getTime() - a[0].depart.getTime();
-    const bDur = b[b.length - 1].arrive.getTime() - b[0].depart.getTime();
+    const aDur = a[a.length - 1].arriveSec - a[0].departSec;
+    const bDur = b[b.length - 1].arriveSec - b[0].departSec;
     return aDur - bDur;
   });
 
   for (let i = 0; i < allPaths.length && routes.length < 8; i++) {
     const key = allPaths[i]
-      .map((l) => `${l.route}@${l.depart.getTime()}->${l.toId}`)
+      .map((l) => `${l.route}@${l.departSec}->${l.toId}`)
       .join("|");
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const route = pathToRoute(allPaths[i], i);
+    const route = pathToRoute(allPaths[i], date, i);
     if (route) routes.push(route);
   }
 

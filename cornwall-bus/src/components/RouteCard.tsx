@@ -1,8 +1,8 @@
 "use client";
 
-import { format } from "date-fns";
 import type { ScoredRoute } from "@/lib/types";
 import { formatStopLabel } from "@/lib/stops";
+import { formatCornwallTime } from "@/lib/cornwall-time";
 
 interface RouteCardProps {
   route: ScoredRoute;
@@ -12,11 +12,7 @@ interface RouteCardProps {
 }
 
 function formatTime(iso: string): string {
-  try {
-    return format(new Date(iso), "HH:mm");
-  } catch {
-    return iso;
-  }
+  return formatCornwallTime(iso);
 }
 
 export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
