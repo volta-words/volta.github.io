@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WeightSliders } from "@/components/WeightSliders";
 import { StopPreferenceEditor } from "@/components/StopPreferenceEditor";
 import { BottomNav } from "@/components/BottomNav";
@@ -13,15 +13,20 @@ import {
   getDefaultStopPreferences,
 } from "@/lib/profile-store";
 
+const DEFAULT_WEIGHTS: WeightPreferences = { speed: 50, changes: 25, stops: 25 };
+
 export default function PreferencesPage() {
-  const [weights, setWeights] = useState<WeightPreferences>(() =>
-    getLocalWeights(),
+  const [weights, setWeights] = useState<WeightPreferences>(DEFAULT_WEIGHTS);
+  const [preferences, setPreferences] = useState<StopPreference[]>(() =>
+    getDefaultStopPreferences(),
   );
-  const [preferences, setPreferences] = useState<StopPreference[]>(() => {
-    const prefs = getLocalStopPreferences();
-    return prefs.length > 0 ? prefs : getDefaultStopPreferences();
-  });
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setWeights(getLocalWeights());
+    const prefs = getLocalStopPreferences();
+    setPreferences(prefs.length > 0 ? prefs : getDefaultStopPreferences());
+  }, []);
 
   function handleSave() {
     saveLocalWeights(weights);

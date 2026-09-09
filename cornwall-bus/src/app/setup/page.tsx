@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MultiStopPicker } from "@/components/MultiStopPicker";
 import { BottomNav } from "@/components/BottomNav";
@@ -32,13 +32,22 @@ function withNearbyDefaults(stops: BusStop[]): BusStop[] {
 
 export default function SetupPage() {
   const router = useRouter();
-  const initial = loadInitialSetup();
-  const [home, setHome] = useState<BusStop[]>(initial.home);
-  const [college, setCollege] = useState<BusStop[]>(initial.college);
-  const [displayName, setDisplayName] = useState(initial.displayName);
-  const [arriveBy, setArriveBy] = useState(initial.arriveBy);
-  const [leaveAfter, setLeaveAfter] = useState(initial.leaveAfter);
+  const [home, setHome] = useState<BusStop[]>([]);
+  const [college, setCollege] = useState<BusStop[]>([]);
+  const [displayName, setDisplayName] = useState("");
+  const [arriveBy, setArriveBy] = useState("09:00");
+  const [leaveAfter, setLeaveAfter] = useState("17:00");
   const [saved, setSaved] = useState(false);
+
+  // Load saved profile after mount — localStorage is unavailable during SSR
+  useEffect(() => {
+    const initial = loadInitialSetup();
+    setHome(initial.home);
+    setCollege(initial.college);
+    setDisplayName(initial.displayName);
+    setArriveBy(initial.arriveBy);
+    setLeaveAfter(initial.leaveAfter);
+  }, []);
 
   function handleHomeChange(stops: BusStop[]) {
     setHome(stops.length === 1 ? withNearbyDefaults(stops) : stops);

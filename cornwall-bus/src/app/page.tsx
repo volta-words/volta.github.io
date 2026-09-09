@@ -12,16 +12,15 @@ import {
   getLocalWeights,
   getDefaultStopPreferences,
 } from "@/lib/profile-store";
-import { formatStopLabel } from "@/lib/stops";
+import { useHasMounted } from "@/hooks/use-has-mounted";
 import Link from "next/link";
+import type { UserProfile } from "@/lib/types";
 
 export default function TodayPage() {
-  const [arriveBy, setArriveBy] = useState(
-    () => getLocalProfile()?.arriveBy ?? "09:00",
-  );
-  const [leaveAfter, setLeaveAfter] = useState(
-    () => getLocalProfile()?.leaveAfter ?? "17:00",
-  );
+  const mounted = useHasMounted();
+  const [arriveBy, setArriveBy] = useState("09:00");
+  const [leaveAfter, setLeaveAfter] = useState("17:00");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [outbound, setOutbound] = useState<ScoredRoute[]>([]);
   const [inbound, setInbound] = useState<ScoredRoute[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,13 @@ export default function TodayPage() {
   const [source, setSource] = useState<string>("");
   const [routeHint, setRouteHint] = useState<string | null>(null);
   const [liveAge, setLiveAge] = useState<number | null>(null);
-  const [profile] = useState(() => buildUserProfile());
+
+  useEffect(() => {
+    const local = getLocalProfile();
+    setProfile(buildUserProfile());
+    if (local?.arriveBy) setArriveBy(local.arriveBy);
+    if (local?.leaveAfter) setLeaveAfter(local.leaveAfter);
+  }, []);
 
   const fetchRoutes = useCallback(async () => {
     const p = buildUserProfile();
@@ -105,6 +110,20 @@ export default function TodayPage() {
     if (profile) void fetchRoutes();
   }, [profile, fetchRoutes]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen flex-col bg-gradient-to-b from-teal-50 to-slate-50 pb-20">
+        <header className="px-4 pt-8 pb-4">
+          <h1 className="text-2xl font-bold text-slate-900">Cornwall Bus</h1>
+        </header>
+        <main className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-slate-500">Loading…</p>
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
