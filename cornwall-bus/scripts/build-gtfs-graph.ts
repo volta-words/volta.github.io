@@ -13,15 +13,6 @@ import { createInterface } from "readline";
 const GTFS_DIR = join(process.cwd(), "data", "gtfs", "extracted");
 const OUT_PATH = join(process.cwd(), "data", "gtfs", "graph.json");
 
-interface RawConnection {
-  to: string;
-  dep: number;
-  arr: number;
-  route: string;
-  routeName: string;
-  serviceId: string;
-}
-
 function parseCsvLine(line: string): string[] {
   const cols: string[] = [];
   let cur = "";
@@ -127,9 +118,19 @@ async function main() {
     tripStops.get(tripId)!.push({ stopId, dep, arr, seq });
   }
 
-  console.log("Building connections…");
-  const graph: Record<string, RawConnection[]> = {};
-  let connCount = 0;
+  console.log("Building trip index…");
+  interface TripStop {
+    stopId: string;
+    dep: number;
+    arr: number;
+  }
+  interface TripData {
+    route: string;
+    routeName: string;
+    serviceId: string;
+    stops: TripStop[];
+  }
+  const trips: Record<string, TripData> = {};
 
   for (const [tripId, stops] of tripStops) {
     stops.sort((a, b) => a.seq - b.seq);
@@ -139,41 +140,32 @@ async function main() {
 
     const route = routeMap.get(routeId) ?? { short: routeId, long: routeId };
 
-    for (let i = 0; i < stops.length - 1; i++) {
-      const from = stops[i];
-      const to = stops[i + 1];
-      if (from.dep >= to.arr) continue;
-
-      const conn: RawConnection = {
-        to: to.stopId,
-        dep: from.dep,
-        arr: to.arr,
-        route: route.short,
-        routeName: route.long,
-        serviceId,
-      };
-
-      if (!graph[from.stopId]) graph[from.stopId] = [];
-      graph[from.stopId].push(conn);
-      connCount++;
-    }
+    trips[tripId] = {
+      route: route.short,
+      routeName: route.long,
+      serviceId,
+      stops: stops.map((s) => ({
+        stopId: s.stopId,
+        dep: s.dep,
+        arr: s.arr,
+      })),
+    };
   }
 
   const output = {
     builtAt: new Date().toISOString(),
     source: "https://www.transportforcornwall.co.uk/open-data",
-    connectionCount: connCount,
-    stopCount: Object.keys(graph).length,
+    tripCount: Object.keys(trips).length,
     calendars,
     calendarDates: calDates,
-    graph,
+    trips,
   };
 
   await mkdir(join(process.cwd(), "data", "gtfs"), { recursive: true });
   await writeFile(OUT_PATH, JSON.stringify(output));
 
   const sizeMb = (JSON.stringify(output).length / 1024 / 1024).toFixed(1);
-  console.log(`Wrote ${connCount} connections for ${Object.keys(graph).length} stops (${sizeMb} MB)`);
+  console.log(`Wrote ${Object.keys(trips).length} trips (${sizeMb} MB)`);
   console.log(`Output: ${OUT_PATH}`);
 }
 

@@ -28,6 +28,7 @@ export default function TodayPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<string>("");
+  const [routeHint, setRouteHint] = useState<string | null>(null);
   const [liveAge, setLiveAge] = useState<number | null>(null);
   const [profile] = useState(() => buildUserProfile());
 
@@ -90,6 +91,7 @@ export default function TodayPage() {
       setOutbound(outData.routes ?? []);
       setInbound(inData.routes ?? []);
       setSource(outData.source ?? "fallback");
+      setRouteHint(outData.hint ?? inData.hint ?? null);
       setLiveAge(liveData.cacheAgeMs ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -190,6 +192,12 @@ export default function TodayPage() {
         {error && (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {routeHint && outbound.length === 0 && inbound.length === 0 && !loading && (
+          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {routeHint}
           </div>
         )}
 

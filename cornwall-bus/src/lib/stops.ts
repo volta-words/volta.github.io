@@ -69,7 +69,18 @@ export function getRelatedStops(
       stop.name.toLowerCase().slice(0, 12) === other.name.toLowerCase().slice(0, 12) &&
       (other.locality ?? "").toLowerCase() === (stop.locality ?? "").toLowerCase();
 
-    if (samePlace || nearby || sameCampus) {
+    // e.g. "Truro College", "Truro College Main Entrance" within 800m
+    const stopPrefix = stop.name.toLowerCase().replace(/\s+(main entrance|opp|w-bound).*$/i, "").slice(0, 14);
+    const otherPrefix = other.name.toLowerCase().replace(/\s+(main entrance|opp|w-bound).*$/i, "").slice(0, 14);
+    const sharedName =
+      stopPrefix.length > 6 &&
+      otherPrefix.length > 6 &&
+      distanceM(stop, other) <= 800 &&
+      (stopPrefix === otherPrefix ||
+        other.name.toLowerCase().includes(stopPrefix) ||
+        stop.name.toLowerCase().includes(otherPrefix));
+
+    if (samePlace || nearby || sameCampus || sharedName) {
       related.push(other);
       seen.add(other.id);
     }

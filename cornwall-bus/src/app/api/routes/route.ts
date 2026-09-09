@@ -85,6 +85,12 @@ export async function POST(request: NextRequest) {
       routes: enriched,
       source,
       count: enriched.length,
+      hint:
+        enriched.length === 0
+          ? source === "fallback"
+            ? "Timetable data may not be loaded. Run npm run prepare-data, or add more nearby stops in Setup."
+            : "No routes found for these stops and times. Include all campus stops (e.g. all Truro College stands), add nearby home stops, or adjust your arrive/leave times."
+          : undefined,
     });
   } catch (err) {
     console.error("Route planning error:", err);

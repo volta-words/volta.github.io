@@ -44,21 +44,8 @@ export async function planJourney(
   >[] = [];
   let source: "otp" | "gtfs" | "fallback" = "fallback";
 
-  const otpUp = await isOtpAvailable();
-  if (otpUp) {
-    for (const fromId of fromStopIds) {
-      for (const toId of toStopIds) {
-        const from = getStopById(fromId);
-        const to = getStopById(toId);
-        if (!from || !to) continue;
-        const routes = await planWithOtp({ from, to, mode: request.mode, time });
-        rawRoutes.push(...routes);
-      }
-    }
-    if (rawRoutes.length > 0) source = "otp";
-  }
-
-  if (rawRoutes.length === 0 && isGtfsGraphAvailable()) {
+  // Prefer Cornwall GTFS timetables — faster and more accurate than OTP for this region
+  if (isGtfsGraphAvailable()) {
     rawRoutes = planWithGtfs({
       fromStopIds,
       toStopIds,
@@ -66,6 +53,22 @@ export async function planJourney(
       time,
     });
     if (rawRoutes.length > 0) source = "gtfs";
+  }
+
+  if (rawRoutes.length === 0) {
+    const otpUp = await isOtpAvailable();
+    if (otpUp) {
+      for (const fromId of fromStopIds) {
+        for (const toId of toStopIds) {
+          const from = getStopById(fromId);
+          const to = getStopById(toId);
+          if (!from || !to) continue;
+          const routes = await planWithOtp({ from, to, mode: request.mode, time });
+          rawRoutes.push(...routes);
+        }
+      }
+      if (rawRoutes.length > 0) source = "otp";
+    }
   }
 
   if (rawRoutes.length === 0) {

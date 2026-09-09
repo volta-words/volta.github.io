@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "test -f data/gtfs/graph.json || npm run build-gtfs-graph",
+    "prebuild": "test -f data/gtfs/extracted/stop_times.txt || npm run prepare-data; test -f data/gtfs/graph.json || npm run build-gtfs-graph",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
