@@ -3,6 +3,8 @@
 import type { ScoredRoute } from "@/lib/types";
 import { formatStopLabel } from "@/lib/stops";
 import { formatCornwallTime } from "@/lib/cornwall-time";
+import { StopMapPreview } from "@/components/StopMapPreview";
+import { googleMapsUrl } from "@/lib/map-links";
 
 interface RouteCardProps {
   route: ScoredRoute;
@@ -61,9 +63,18 @@ export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
               {route.numTransfers === 0
                 ? "Direct"
                 : `${route.numTransfers} change${route.numTransfers > 1 ? "s" : ""}`}
-              {route.transferStops.length > 0 &&
-                ` at ${route.transferStops.map((s) => s.name).join(", ")}`}
+              {route.transferStops.length > 0 && (
+                <>
+                  {" at "}
+                  {route.transferStops.map((s) => s.name).join(", ")}
+                </>
+              )}
             </p>
+            {route.transferStops.length > 0 && !expanded && (
+              <p className="mt-1 text-xs text-teal-700">
+                Tap to see where to change on the map
+              </p>
+            )}
           </div>
           {route.delayMinutes !== undefined && route.delayMinutes !== 0 && (
             <span
@@ -93,38 +104,66 @@ export function RouteCard({ route, rank, expanded, onToggle }: RouteCardProps) {
 
       {expanded && (
         <div className="border-t border-slate-100 px-4 py-3">
-          <ol className="space-y-3">
+          <ol className="space-y-4">
             {route.legs.map((leg, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <div className="flex w-14 shrink-0 flex-col text-xs text-slate-500">
-                  <span>{formatTime(leg.departureTime)}</span>
-                  <span>{leg.durationMinutes}m</span>
-                </div>
-                <div
-                  className={`flex-1 rounded-lg px-3 py-2 ${
-                    leg.mode === "WALK"
-                      ? "bg-slate-50 text-slate-600"
-                      : "bg-teal-50 text-teal-900"
-                  }`}
-                >
-                  {leg.mode === "BUS" ? (
-                    <>
-                      <span className="font-semibold">{leg.routeShortName}</span>
-                      {leg.routeLongName && (
-                        <span className="ml-2 text-xs opacity-75">
-                          {leg.routeLongName}
-                        </span>
-                      )}
-                      <p className="mt-1 text-xs">
-                        {formatStopLabel(leg.fromStop)} →{" "}
-                        {formatStopLabel(leg.toStop)}
-                      </p>
-                    </>
-                  ) : (
-                    <span>
-                      Walk to {formatStopLabel(leg.toStop)}
-                    </span>
-                  )}
+              <li key={i}>
+                {leg.isTransfer && leg.mode === "BUS" && (
+                  <div className="mb-3">
+                    <StopMapPreview
+                      stop={leg.fromStop}
+                      context={
+                        route.transferStops.length > 1
+                          ? `Change ${route.transferStops.findIndex((s) => s.id === leg.fromStop.id) + 1} of ${route.transferStops.length}`
+                          : "Change here"
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-3 text-sm">
+                  <div className="flex w-14 shrink-0 flex-col text-xs text-slate-500">
+                    <span>{formatTime(leg.departureTime)}</span>
+                    <span>{leg.durationMinutes}m</span>
+                  </div>
+                  <div
+                    className={`flex-1 rounded-lg px-3 py-2 ${
+                      leg.mode === "WALK"
+                        ? "bg-slate-50 text-slate-600"
+                        : "bg-teal-50 text-teal-900"
+                    }`}
+                  >
+                    {leg.mode === "BUS" ? (
+                      <>
+                        <span className="font-semibold">{leg.routeShortName}</span>
+                        {leg.routeLongName && (
+                          <span className="ml-2 text-xs opacity-75">
+                            {leg.routeLongName}
+                          </span>
+                        )}
+                        <p className="mt-1 text-xs">
+                          {formatStopLabel(leg.fromStop)} →{" "}
+                          {formatStopLabel(leg.toStop)}
+                        </p>
+                        {!leg.isTransfer && i === 0 && (
+                          <a
+                            href={googleMapsUrl(
+                              leg.fromStop.lat,
+                              leg.fromStop.lng,
+                              formatStopLabel(leg.fromStop),
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-block text-xs font-medium text-teal-700 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            See boarding stop on map ↗
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <span>Walk to {formatStopLabel(leg.toStop)}</span>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
