@@ -37,7 +37,7 @@ export default function TodayPage() {
     if (local?.leaveAfter) setLeaveAfter(local.leaveAfter);
   }, []);
 
-  const fetchRoutes = useCallback(async () => {
+  const fetchRoutes = useCallback(async (arriveByTime: string, leaveAfterTime: string) => {
     const p = buildUserProfile();
     if (!p) {
       setError("Please set up your home and college stops first.");
@@ -64,7 +64,7 @@ export default function TodayPage() {
             fromStopIds: p.homeStopIds,
             toStopIds: p.collegeStopIds,
             mode: "arrive-by",
-            time: arriveBy,
+            time: arriveByTime,
             date,
             weights,
             stopPreferences,
@@ -77,7 +77,7 @@ export default function TodayPage() {
             fromStopIds: p.collegeStopIds,
             toStopIds: p.homeStopIds,
             mode: "depart-after",
-            time: leaveAfter,
+            time: leaveAfterTime,
             date,
             weights,
             stopPreferences,
@@ -103,11 +103,14 @@ export default function TodayPage() {
     } finally {
       setLoading(false);
     }
-  }, [arriveBy, leaveAfter]);
+  }, []);
 
-  /* eslint-disable react-hooks/set-state-in-effect -- data fetch on mount */
+  /* eslint-disable react-hooks/set-state-in-effect -- initial fetch once profile is loaded */
   useEffect(() => {
-    if (profile) void fetchRoutes();
+    if (!profile) return;
+    void fetchRoutes(arriveBy, leaveAfter);
+    // Only run when profile becomes available — not when times change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, fetchRoutes]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -190,12 +193,15 @@ export default function TodayPage() {
           </div>
           <button
             type="button"
-            onClick={fetchRoutes}
+            onClick={() => void fetchRoutes(arriveBy, leaveAfter)}
             disabled={loading}
             className="mt-4 w-full rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
           >
             {loading ? "Finding routes…" : "Refresh routes"}
           </button>
+          <p className="mt-2 text-center text-xs text-slate-500">
+            Change times above, then tap Refresh routes to search
+          </p>
           {source && (
             <p className="mt-2 text-center text-xs text-slate-400">
               Routing via{" "}
