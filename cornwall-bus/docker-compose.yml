@@ -1,0 +1,31 @@
+services:
+  otp-build:
+    image: opentripplanner/opentripplanner:2.6.0
+    container_name: cornwall-otp-build
+    volumes:
+      - ./data/gtfs:/var/opentripplanner/gtfs:ro
+      - ./data/otp:/var/opentripplanner/data
+    command: >
+      --build
+      --save
+      /var/opentripplanner/data/graph.obj
+    profiles:
+      - build
+
+  otp:
+    image: opentripplanner/opentripplanner:2.6.0
+    container_name: cornwall-otp
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/otp:/var/opentripplanner/data:ro
+    command: >
+      --load
+      /var/opentripplanner/data/graph.obj
+      --serve
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/otp/routers/default"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

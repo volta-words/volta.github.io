@@ -1,0 +1,6 @@
+# Supabase local development config
+# Run migrations against your hosted project via Supabase dashboard SQL editor
+# or: supabase db push (requires Supabase CLI linked to project)
+
+[project]
+id = "cornwall-bus"
